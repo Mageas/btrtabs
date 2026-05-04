@@ -87,3 +87,10 @@ store/                 # Assets pour la soumission Chrome Web Store
 
 À mettre à jour à mesure que les fonctionnalités s'ajoutent (et à refléter dans
 `store/description.md` et `store/privacy-policy.md`).
+
+## Sécurité & advisories
+
+`bun audit` signale une vulnérabilité sur `rollup@2.79.2` tiré par
+`@crxjs/vite-plugin`. Elle est **build-time uniquement** et non exploitable dans
+notre contexte (sources contrôlées). Voir [SECURITY.md](SECURITY.md) pour le
+détail et les conditions de réévaluation.
