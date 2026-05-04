@@ -2,6 +2,35 @@
 
 Better tabs management for Chrome — extension Manifest V3, service worker only.
 
+## Comportement
+
+- **`Ctrl+T` / `⌘T` / bouton « + »** → le nouvel onglet est déplacé tout au début
+  de la fenêtre, juste après les onglets épinglés (ou en position 0 s'il n'y en
+  a pas).
+- **`Ctrl+Click` sur un lien**, lien `target="_blank"`, `window.open(...)`, etc.
+  → l'onglet reste à sa position naturelle (juste après son onglet parent).
+  L'extension ne le touche pas.
+- **Lien externe ouvrant Chrome** (depuis Slack, mail, etc.) → laissé tel quel.
+- **Restauration de session** → laissée telle quelle.
+
+La distinction repose sur deux critères combinés (`src/background/index.ts`) :
+absence d'`openerTabId` **et** URL initiale de type page « Nouvel Onglet »
+(`chrome://newtab/`, etc.).
+
+## Test manuel
+
+Après `bun run dev` + chargement de `dist/` dans Chrome :
+
+1. **Ctrl+T** → l'onglet doit apparaître en première position (ou juste après
+   les épinglés).
+2. **Bouton « + »** → idem.
+3. Épingler un onglet, puis Ctrl+T → le nouvel onglet doit se placer **après**
+   l'épinglé, jamais avant.
+4. **Ctrl+Click sur un lien** d'une page → le nouvel onglet doit rester à sa
+   position naturelle (juste à droite de l'onglet d'origine).
+5. Coller une URL externe dans la barre Spotlight / Slack qui ouvre Chrome →
+   l'onglet doit rester en fin de barre, pas au début.
+
 ## Stack
 
 - **TypeScript** (strict)
