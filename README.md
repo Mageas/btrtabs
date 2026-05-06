@@ -7,15 +7,34 @@ Better tabs management for Chrome — extension Manifest V3, service worker only
 - **`Ctrl+T` / `⌘T` / bouton « + »** → le nouvel onglet est déplacé tout au début
   de la fenêtre, juste après les onglets épinglés (ou en position 0 s'il n'y en
   a pas).
+- **Lien externe ouvrant Chrome** (depuis Slack, mail, Spotlight, drag-n-drop,
+  etc.) → déplacé en début de fenêtre comme un Ctrl+T.
 - **`Ctrl+Click` sur un lien**, lien `target="_blank"`, `window.open(...)`, etc.
   → l'onglet reste à sa position naturelle (juste après son onglet parent).
   L'extension ne le touche pas.
-- **Lien externe ouvrant Chrome** (depuis Slack, mail, etc.) → laissé tel quel.
-- **Restauration de session** → laissée telle quelle.
+- **Restauration de session** → laissée telle quelle (les onglets restaurés au
+  démarrage gardent leur ordre d'origine grâce à une fenêtre de grâce de 5 s
+  après `chrome.runtime.onStartup`).
 
-La distinction repose sur deux critères combinés (`src/background/index.ts`) :
-absence d'`openerTabId` **et** URL initiale de type page « Nouvel Onglet »
-(`chrome://newtab/`, etc.).
+La distinction est faite dans [`src/background/decide.ts`](src/background/decide.ts) :
+
+- URL initiale = page « Nouvel Onglet » (`chrome://newtab/`, etc.) → Ctrl+T /
+  « + », on déplace.
+- `tab.active === false` → ouverture en arrière-plan (Ctrl+Click), on ne touche
+  pas.
+- Pas d'`openerTabId` → ouverture externe sans onglet source, on déplace.
+- Avec `openerTabId`, on compare la position : si le nouvel onglet est juste
+  après son opener (`tab.index === opener.index + 1`), c'est un clic interne
+  (`target="_blank"`, `window.open`), on laisse. Sinon (typiquement créé en
+  bout de fenêtre alors que l'opener est ailleurs), c'est un lien externe que
+  Chrome a attaché à l'onglet actif comme opener — on déplace.
+
+## Logs
+
+Les `console.log` du service worker passent par un helper
+[`src/lib/log.ts`](src/lib/log.ts) qui no-op en build de production (Vite
+remplace `import.meta.env.DEV` par `false` puis Rollup tree-shake la branche
+dev). Seul `console.warn` reste, pour les erreurs runtime.
 
 ## Test manuel
 
@@ -29,7 +48,12 @@ Après `bun run dev` + chargement de `dist/` dans Chrome :
 4. **Ctrl+Click sur un lien** d'une page → le nouvel onglet doit rester à sa
    position naturelle (juste à droite de l'onglet d'origine).
 5. Coller une URL externe dans la barre Spotlight / Slack qui ouvre Chrome →
-   l'onglet doit rester en fin de barre, pas au début.
+   l'onglet doit aller **au début** de la fenêtre (juste après les épinglés).
+6. Glisser un lien depuis une autre app (Finder, Notes…) vers la fenêtre Chrome
+   → l'onglet doit aller au début.
+7. Quitter Chrome avec plusieurs onglets puis le relancer → l'ordre des onglets
+   restaurés doit être préservé (la fenêtre de grâce empêche tout
+   reclassement).
 
 ## Stack
 
@@ -85,17 +109,17 @@ Avant la première soumission :
 
 ## Scripts
 
-| Script               | Description                                      |
-| -------------------- | ------------------------------------------------ |
-| `bun run dev`        | Vite en watch mode + HMR                         |
-| `bun run build`      | Type-check + bundle prod dans `dist/`            |
-| `bun run preview`    | Preview du build prod                            |
-| `bun run lint`       | ESLint                                           |
-| `bun run lint:fix`   | ESLint + auto-fix                                |
-| `bun run format`     | Prettier (write)                                 |
-| `bun run typecheck`  | `tsc --noEmit`                                   |
-| `bun run zip`        | Zip de `dist/` → `btrtabs-<version>.zip`         |
-| `bun run package`    | `build` + `zip`                                  |
+| Script              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `bun run dev`       | Vite en watch mode + HMR                 |
+| `bun run build`     | Type-check + bundle prod dans `dist/`    |
+| `bun run preview`   | Preview du build prod                    |
+| `bun run lint`      | ESLint                                   |
+| `bun run lint:fix`  | ESLint + auto-fix                        |
+| `bun run format`    | Prettier (write)                         |
+| `bun run typecheck` | `tsc --noEmit`                           |
+| `bun run zip`       | Zip de `dist/` → `btrtabs-<version>.zip` |
+| `bun run package`   | `build` + `zip`                          |
 
 ## Structure
 
