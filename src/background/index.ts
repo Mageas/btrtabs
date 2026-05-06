@@ -1,32 +1,52 @@
-const NEW_TAB_URLS = new Set([
-  'chrome://newtab/',
-  'chrome://new-tab-page/',
-  'chrome://new-tab-page-third-party/',
-]);
+import { log, warn } from '../lib/log';
+import { decide } from './decide';
 
-// "Manual" = Ctrl+T or the "+" button. Detected solely by the initial URL
-// pointing to the New Tab page. We cannot rely on openerTabId being absent:
-// modern Chrome attaches the previously-active tab as opener for Ctrl+T too.
-// URL alone is reliable because Ctrl+click on a link always yields the link's
-// URL in pendingUrl, never chrome://newtab/.
-//
-// At onCreated time, tab.url is often "" while tab.pendingUrl holds the value,
-// so we check both fields.
-function isManualNewTab(tab: chrome.tabs.Tab): boolean {
-  return [tab.url, tab.pendingUrl].some((u) => !!u && NEW_TAB_URLS.has(u));
-}
+log('service worker booted');
+
+// onStartup fires only on browser boot, not on service-worker wake-up. We
+// suspend reordering for a few seconds afterwards so session-restored tabs
+// stay where Chrome put them.
+const STARTUP_GRACE_MS = 5000;
+let suppressMoves = false;
+
+chrome.runtime.onStartup.addListener(() => {
+  log('onStartup — suppressing moves for', STARTUP_GRACE_MS, 'ms');
+  suppressMoves = true;
+  setTimeout(() => {
+    suppressMoves = false;
+    log('startup grace ended');
+  }, STARTUP_GRACE_MS);
+});
 
 async function moveAfterPinned(tabId: number, windowId: number): Promise<void> {
   const tabs = await chrome.tabs.query({ windowId });
   const pinnedCount = tabs.filter((t) => t.pinned).length;
+  log('moving tab', tabId, '→ index', pinnedCount);
   await chrome.tabs.move(tabId, { index: pinnedCount });
 }
 
 chrome.tabs.onCreated.addListener((tab) => {
-  if (tab.id === undefined || tab.pinned) return;
-  if (!isManualNewTab(tab)) return;
-
-  void moveAfterPinned(tab.id, tab.windowId).catch((err: unknown) => {
-    console.warn('[btrtabs] move failed', err);
+  log('onCreated', {
+    id: tab.id,
+    windowId: tab.windowId,
+    index: tab.index,
+    url: tab.url || tab.pendingUrl,
+    openerTabId: tab.openerTabId,
+    pinned: tab.pinned,
+    active: tab.active,
   });
+
+  const tabId = tab.id;
+  if (tabId === undefined) return;
+  if (suppressMoves) {
+    log('skip: startup grace');
+    return;
+  }
+
+  void decide(tab)
+    .then((d) => {
+      log('decision for', tabId, '→', d.move ? 'MOVE' : 'SKIP', `(${d.reason})`);
+      if (d.move) return moveAfterPinned(tabId, tab.windowId);
+    })
+    .catch((err: unknown) => warn('handler failed', err));
 });
