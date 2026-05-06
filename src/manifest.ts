@@ -11,7 +11,7 @@ export default defineManifest({
     service_worker: 'src/background/index.ts',
     type: 'module',
   },
-  permissions: ['tabs', 'storage'],
+  permissions: ['tabs'],
   icons: {
     16: 'icons/icon-16.png',
     32: 'icons/icon-32.png',

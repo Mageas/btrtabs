@@ -136,7 +136,6 @@ store/                 # Assets pour la soumission Chrome Web Store
 ## Permissions actuelles
 
 - `tabs` — lecture/organisation des onglets
-- `storage` — persistance locale des préférences
 
 À mettre à jour à mesure que les fonctionnalités s'ajoutent (et à refléter dans
 `store/description.md` et `store/privacy-policy.md`).
